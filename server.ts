@@ -1,0 +1,86 @@
+import express from 'express';
+import { createServer } from 'http';
+import path from 'path';
+import { createServer as createViteServer } from 'vite';
+import { WebSocketServer } from 'ws';
+import { setupWSConnection } from 'y-websocket/bin/utils';
+import { GoogleGenAI } from '@google/genai';
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+  
+  app.use(express.json());
+
+  // API Route for Gemini AI
+  app.post('/api/ai/generate-diagram', async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `You are an AI that creates mind maps and diagrams for a whiteboard app. 
+          Return ONLY a JSON array of objects representing sticky notes or shapes.
+          Each object must have: 
+          - id (string, unique uuid)
+          - type (string: "rect" or "circle" or "sticky")
+          - x (number)
+          - y (number)
+          - text (string, the node text)
+          - width (number)
+          - height (number)
+          - fill (string, hex color like "#2A2A2A")
+          
+          Make them visually appealing with good spacing for this prompt: "${prompt}"`,
+        config: {
+          responseMimeType: "application/json",
+        }
+      });
+      
+      if (response.text) {
+         res.json({ shapes: JSON.parse(response.text) });
+      } else {
+         res.status(500).json({ error: "No response text" });
+      }
+
+    } catch (err: any) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  const server = createServer(app);
+  
+  // Setup WebSocket Server for Yjs
+  const wss = new WebSocketServer({ server });
+  
+  wss.on('connection', (ws, req) => {
+    // Determine room name from url, e.g. /ws/workspace123
+    const url = req.url || '/';
+    const room = url.split('/').pop() || 'default-room';
+    
+    // Yjs websocket connection setup
+    setupWSConnection(ws, req, { docName: room });
+  });
+
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+startServer();

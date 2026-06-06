@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isValidId(id) { 
+        return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt']) &&
+             data.email is string && data.email.size() <= 256 &&
+             data.createdAt is number &&
+             (data.keys().hasAll(['displayName']) ? (data.displayName is string && data.displayName.size() <= 128) : true) &&
+             (data.keys().hasAll(['photoURL']) ? (data.photoURL is string && data.photoURL.size() <= 1024) : true);
+    }
+    
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn() && resource.data.email == request.auth.token.email;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+        isValidUser(incoming()) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'email', 'createdAt']);
+    }
+
+    function isValidWorkspace(data) {
+      return data.keys().hasAll(['name', 'ownerId', 'createdAt', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+             data.ownerId is string && data.ownerId.size() <= 128 &&
+             data.createdAt is number &&
+             data.updatedAt is number &&
+             (data.keys().hasAll(['state']) ? data.state is string : true);
+    }
+
+    match /workspaces/{workspaceId} {
+      allow get: if isSignedIn() && isValidId(workspaceId) && 
+                 exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() && isValidId(workspaceId) &&
+                    isValidWorkspace(incoming()) &&
+                    incoming().ownerId == request.auth.uid;
+                    
+      allow update: if isSignedIn() && isValidId(workspaceId) &&
+                    isValidWorkspace(incoming()) &&
+                    incoming().ownerId == existing().ownerId &&
+                    incoming().createdAt == existing().createdAt &&
+                    exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)) &&
+                    get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data.role in ['editor', 'owner'] &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'state', 'updatedAt']);
+                    
+      allow delete: if isSignedIn() && isValidId(workspaceId) &&
+                    existing().ownerId == request.auth.uid;
+
+      match /members/{memberId} {
+        allow get: if isSignedIn() && isValidId(workspaceId) && isValidId(memberId) &&
+                   exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+        allow list: if isSignedIn() && isValidId(workspaceId) &&
+                    exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+        
+        allow create: if isSignedIn() && isValidId(workspaceId) && isValidId(memberId) &&
+                      incoming().keys().hasAll(['role', 'joinedAt']) &&
+                      incoming().role in ['viewer', 'editor', 'owner'] &&
+                      incoming().joinedAt is number &&
+                      (
+                        (memberId == request.auth.uid && get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid) || // Owner creating their own member doc
+                        get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data.role == 'owner' // Owner adding others
+                      );
+                      
+        allow update: if isSignedIn() && isValidId(workspaceId) && isValidId(memberId) &&
+                      incoming().keys().hasAll(['role', 'joinedAt']) &&
+                      incoming().role in ['viewer', 'editor', 'owner'] &&
+                      incoming().joinedAt == existing().joinedAt &&
+                      get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data.role == 'owner';
+                      
+        allow delete: if isSignedIn() && isValidId(workspaceId) && isValidId(memberId) &&
+                      (memberId == request.auth.uid || get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data.role == 'owner');
+      }
+    }
+    
+    // Secure collection group query for workspaces
+    match /{path=**}/members/{memberId} {
+        allow read: if isSignedIn() && memberId == request.auth.uid;
+    }
+  }
+}

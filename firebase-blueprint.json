@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "A collaborative workspace / board",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "state": { "type": "string", "description": "Serialized canvas data" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "ownerId", "createdAt", "updatedAt"]
+    },
+    "WorkspaceMember": {
+      "title": "WorkspaceMember",
+      "description": "User access map for a workspace",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["viewer", "editor", "owner"] },
+        "joinedAt": { "type": "number" }
+      },
+      "required": ["role", "joinedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": { "$ref": "#/entities/Workspace" },
+      "description": "Whiteboard workspaces"
+    },
+    "/workspaces/{workspaceId}/members/{userId}": {
+      "schema": { "$ref": "#/entities/WorkspaceMember" },
+      "description": "Members of a workspace"
+    }
+  }
+}
