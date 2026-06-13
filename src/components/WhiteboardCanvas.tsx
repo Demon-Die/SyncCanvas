@@ -126,19 +126,19 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
-                    width: shapeData.width || 100,
-                    height: shapeData.height || 100,
-                    fill: shapeData.fill || '#333',
-                    rx: shapeData.type === 'sticky' ? 8 : 0,
-                    ry: shapeData.type === 'sticky' ? 8 : 0,
+                    width: shapeData.width || 120,
+                    height: shapeData.height || 120,
+                    fill: shapeData.fill || '#3f3f46',
+                    rx: shapeData.type === 'sticky' ? 8 : 16,
+                    ry: shapeData.type === 'sticky' ? 8 : 16,
                 } as any);
             } else if (shapeData.type === 'circle') {
                 obj = new fabric.Circle({
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
-                    radius: shapeData.radius || 50,
-                    fill: shapeData.fill || '#333',
+                    radius: shapeData.radius || 60,
+                    fill: shapeData.fill || '#3f3f46',
                 } as any);
             } else if (shapeData.type === 'text') {
                 obj = new fabric.Textbox(shapeData.text || 'Text', {
@@ -232,10 +232,10 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
         const id = Date.now().toString();
 
         if (tool === 'rect') {
-            updateShape(id, { id, type: 'rect', x, y, width: 100, height: 100, fill: '#4f46e5' });
+            updateShape(id, { id, type: 'rect', x, y, width: 120, height: 120, fill: '#6366f1' });
             setTool('select');
         } else if (tool === 'circle') {
-            updateShape(id, { id, type: 'circle', x, y, radius: 50, fill: '#4f46e5' });
+            updateShape(id, { id, type: 'circle', x, y, radius: 60, fill: '#6366f1' });
             setTool('select');
         } else if (tool === 'text') {
             updateShape(id, { id, type: 'text', x, y, text: 'New Text', fill: '#ffffff', fontSize: 24, width: 200 });

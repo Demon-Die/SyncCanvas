@@ -13,7 +13,7 @@ export default function Board() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { shapes, updateShape, removeShape, synced, yMap, undo, redo } = useYjsStore(id!);
+  const { shapes, updateShape, removeShape, synced, yMap, undo, redo, awareness, awarenessUsers } = useYjsStore(id!, user);
   const [tool, setTool] = useState('select');
   const [selectedId, selectShape] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -101,20 +101,32 @@ export default function Board() {
   };
 
   return (
-    <div className="h-screen w-screen bg-zinc-950 overflow-hidden relative">
+    <div 
+      className="h-screen w-screen bg-zinc-950 overflow-hidden relative"
+      onPointerMove={(e) => {
+        if (awareness) {
+           awareness.setLocalStateField('cursor', { x: e.clientX, y: e.clientY });
+        }
+      }}
+      onPointerLeave={() => {
+        if (awareness) {
+           awareness.setLocalStateField('cursor', null);
+        }
+      }}
+    >
       {/* Top Bar */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
-          <Button variant="secondary" size="icon" onClick={() => navigate('/dash')} className="bg-zinc-900/80 backdrop-blur border-zinc-800 text-zinc-300">
+          <Button variant="secondary" size="icon" onClick={() => navigate('/dash')} className="bg-zinc-900/60 backdrop-blur-xl border-white/10 text-zinc-300 hover:bg-zinc-800/80 hover:text-white rounded-xl shadow-lg">
             <Home className="w-4 h-4" />
           </Button>
-          <div className="bg-zinc-900/80 backdrop-blur border border-zinc-800 px-4 py-2 rounded-md text-sm font-medium text-zinc-200">
-            Board {synced ? <span className="inline-block w-2 h-2 rounded-full bg-green-500 ml-2" /> : <span className="inline-block w-2 h-2 rounded-full bg-zinc-500 ml-2" />}
+          <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl text-sm font-medium text-zinc-200 shadow-lg flex items-center gap-2">
+            Board {synced ? <span className="inline-block w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" /> : <span className="inline-block w-2 h-2 rounded-full bg-zinc-500" />}
           </div>
         </div>
         
         {/* AI Prompt Input */}
-        <form onSubmit={handleAiGenerate} className="pointer-events-auto flex items-center gap-2 bg-zinc-900/80 backdrop-blur border border-zinc-800 p-1 rounded-full shadow-2xl w-[400px]">
+        <form onSubmit={handleAiGenerate} className="pointer-events-auto flex items-center gap-2 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-lg w-[450px] ring-1 ring-white/5 transition-all focus-within:ring-indigo-500/50 focus-within:bg-zinc-900/80">
           <Input 
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
@@ -128,9 +140,24 @@ export default function Board() {
         </form>
         
         <div className="pointer-events-auto">
-           {/* Avatars placeholder */}
            <div className="flex -space-x-2">
-              <img src={user?.photoURL || ''} className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800" alt="" />
+              {Array.from(awarenessUsers.entries()).map(([clientId, state]) => {
+                 if (!state.user) return null;
+                 return (
+                   <div key={clientId} className="relative group">
+                     {state.user.photoURL ? (
+                        <img src={state.user.photoURL} className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800 object-cover" alt={state.user.name} />
+                     ) : (
+                        <div className="w-8 h-8 rounded-full border-2 border-zinc-950 text-xs flex items-center justify-center font-bold text-white shadow-sm" style={{ backgroundColor: state.user.color }}>
+                           {state.user.name.charAt(0).toUpperCase()}
+                        </div>
+                     )}
+                     <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-800 text-zinc-200 text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                        {state.user.name}
+                     </span>
+                   </div>
+                 )
+              })}
            </div>
         </div>
       </div>
@@ -140,7 +167,7 @@ export default function Board() {
         initial={{ x: -100, opacity: 0, y: '-50%' }}
         animate={{ x: 0, opacity: 1, y: '-50%' }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="absolute left-6 top-1/2 flex flex-col gap-2 bg-zinc-900/90 backdrop-blur-md border border-zinc-800/80 p-2.5 rounded-2xl z-10 pointer-events-auto shadow-2xl"
+        className="absolute left-6 top-1/2 flex flex-col gap-2 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-2.5 rounded-2xl z-10 pointer-events-auto shadow-2xl ring-1 ring-white/5"
       >
         <ToolButton icon={<MousePointer2 />} active={tool === 'select'} onClick={() => setTool('select')} label="Select (V)" />
         <ToolButton icon={<Hand />} active={tool === 'pan'} onClick={() => setTool('pan')} label="Pan (H)" />
@@ -155,12 +182,38 @@ export default function Board() {
         <ToolButton icon={<Redo2 />} active={false} onClick={redo} label="Redo" disabled={!redo} />
       </motion.div>
 
+      {/* Remote Cursors Overlay */}
+      {Array.from(awarenessUsers.entries()).map(([clientId, state]) => {
+         // Don't render our own cursor
+         if (awareness && clientId === awareness.clientID) return null;
+         if (!state.cursor || !state.user) return null;
+         
+         return (
+            <motion.div
+               key={clientId}
+               initial={{ x: state.cursor.x, y: state.cursor.y }}
+               animate={{ x: state.cursor.x, y: state.cursor.y }}
+               transition={{ type: "spring", stiffness: 500, damping: 28, mass: 0.5 }}
+               className="absolute top-0 left-0 pointer-events-none z-50 flex flex-col items-start"
+               style={{ originX: 0, originY: 0 }}
+            >
+               <MousePointer2 className="w-5 h-5 drop-shadow-md" fill={state.user.color} color="white" />
+               <div 
+                 className="px-2 py-1 rounded-md text-xs font-medium text-white shadow-md whitespace-nowrap mt-1 ml-3"
+                 style={{ backgroundColor: state.user.color }}
+               >
+                 {state.user.name}
+               </div>
+            </motion.div>
+         );
+      })}
+
       {/* Canvas Area */}
       <WhiteboardCanvas shapes={shapes} updateShape={updateShape} tool={tool} setTool={setTool} selectedId={selectedId} selectShape={selectShape} />
 
       {/* Properties Toolbar */}
       {selectedId && shapes[selectedId] && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 p-2.5 rounded-2xl z-10 shadow-2xl transition-all animate-in slide-in-from-bottom-5">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-2.5 rounded-2xl z-10 shadow-2xl transition-all animate-in slide-in-from-bottom-5 ring-1 ring-white/5">
           <Input 
              value={shapes[selectedId].text || ''}
              onChange={(e) => updateShape(selectedId, { text: e.target.value })}
@@ -198,8 +251,8 @@ function ToolButton({ icon, active, onClick, label, disabled }: { icon: any, act
       title={label}
       className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors relative group
         ${disabled ? 'opacity-50 cursor-not-allowed text-zinc-600' : 
-          active ? 'bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)] text-white' : 
-          'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80'}`}
+          active ? 'bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.5)] text-white ring-1 ring-indigo-400/50' : 
+          'text-zinc-400 hover:text-zinc-100 hover:bg-white/10'}`}
     >
       {icon}
       {label && (
