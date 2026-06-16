@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
@@ -61,19 +61,19 @@ export function useYjsStore(roomId: string, user: any) {
     };
   }, [roomId, user]);
 
-  const updateShape = (id: string, newProps: any) => {
+  const updateShape = useCallback((id: string, newProps: any) => {
     if (!yMap) return;
     const current = yMap.get(id) || {};
     yMap.set(id, { ...current, ...newProps });
-  };
+  }, [yMap]);
 
-  const removeShape = (id: string) => {
+  const removeShape = useCallback((id: string) => {
     if (!yMap) return;
     yMap.delete(id);
-  };
+  }, [yMap]);
 
-  const undo = () => undoManager?.undo();
-  const redo = () => undoManager?.redo();
+  const undo = useCallback(() => undoManager?.undo(), [undoManager]);
+  const redo = useCallback(() => undoManager?.redo(), [undoManager]);
 
   return { yMap, shapes, synced, updateShape, removeShape, provider, undo, redo, awareness, awarenessUsers };
 }

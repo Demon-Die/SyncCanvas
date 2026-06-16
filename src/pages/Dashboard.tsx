@@ -12,20 +12,56 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joiningWifi, setJoiningWifi] = useState(false);
 
   useEffect(() => {
+    const pendingRoom = sessionStorage.getItem('pendingRoom');
+    if (pendingRoom) {
+       sessionStorage.removeItem('pendingRoom');
+       navigate(`/board/${pendingRoom}`);
+       return;
+    }
+
     if (user) {
       getUserWorkspaces(user.uid).then(ws => {
         setWorkspaces(ws);
         setLoading(false);
+      }).catch(err => {
+        console.warn('Could not fetch workspaces (expected for local guests):', err);
+        setWorkspaces([]);
+        setLoading(false);
       });
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleCreate = async () => {
     if (!user) return;
-    const id = await createWorkspace(user.uid, 'Untitled Board');
-    navigate(`/board/${id}`);
+    try {
+       if (user.uid.startsWith('guest-')) {
+          navigate(`/board/${crypto.randomUUID()}`);
+          return;
+       }
+       const id = await createWorkspace(user.uid, 'Untitled Board');
+       navigate(`/board/${id}`);
+    } catch (e) {
+       console.error('Failed to create workspace in DB, using local board:', e);
+       navigate(`/board/${crypto.randomUUID()}`);
+    }
+  };
+
+  const handleJoinWifi = async () => {
+     setJoiningWifi(true);
+     try {
+        const res = await fetch('/api/network-room');
+        const data = await res.json();
+        if (data.roomId) {
+           navigate(`/board/${data.roomId}`);
+        }
+     } catch (e) {
+        console.error(e);
+     } finally {
+        setJoiningWifi(false);
+     }
   };
 
   return (
@@ -71,10 +107,15 @@ export default function Dashboard() {
                <h1 className="text-3xl font-bold tracking-tight">Your Boards</h1>
                <p className="text-zinc-500 mt-1">Create and manage your collaborative workspaces.</p>
             </div>
-            <Button onClick={handleCreate} className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all hover:scale-105 rounded-full px-6">
-              <Plus className="w-4 h-4 mr-2" />
-              New Board
-            </Button>
+            <div className="flex gap-3">
+               <Button onClick={handleJoinWifi} disabled={joiningWifi} variant="secondary" className="bg-white/10 hover:bg-white/20 text-white rounded-full px-6">
+                 {joiningWifi ? 'Joining...' : 'Join WiFi Room'}
+               </Button>
+               <Button onClick={handleCreate} className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)] transition-all hover:scale-105 rounded-full px-6">
+                 <Plus className="w-4 h-4 mr-2" />
+                 New Board
+               </Button>
+            </div>
           </div>
 
           {loading ? (

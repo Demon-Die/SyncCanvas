@@ -16,6 +16,7 @@ export default function Board() {
   const { shapes, updateShape, removeShape, synced, yMap, undo, redo, awareness, awarenessUsers } = useYjsStore(id!, user);
   const [tool, setTool] = useState('select');
   const [selectedId, selectShape] = useState<string | null>(null);
+  const [brushColor, setBrushColor] = useState('#ffffff');
   const [prompt, setPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -209,32 +210,53 @@ export default function Board() {
       })}
 
       {/* Canvas Area */}
-      <WhiteboardCanvas shapes={shapes} updateShape={updateShape} tool={tool} setTool={setTool} selectedId={selectedId} selectShape={selectShape} />
+      <WhiteboardCanvas shapes={shapes} updateShape={updateShape} tool={tool} setTool={setTool} selectedId={selectedId} selectShape={selectShape} brushColor={brushColor} />
 
       {/* Properties Toolbar */}
-      {selectedId && shapes[selectedId] && (
+      {((selectedId && shapes[selectedId]) || tool === 'pen') && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-zinc-900/60 backdrop-blur-xl border border-white/10 p-2.5 rounded-2xl z-10 shadow-2xl transition-all animate-in slide-in-from-bottom-5 ring-1 ring-white/5">
-          <Input 
-             value={shapes[selectedId].text || ''}
-             onChange={(e) => updateShape(selectedId, { text: e.target.value })}
-             placeholder="Add text..."
-             className="w-48 bg-zinc-950/50 border-zinc-800 focus-visible:ring-indigo-500 text-sm text-zinc-100 rounded-xl"
-          />
-          <div className="w-px h-6 bg-zinc-800" />
+          {selectedId && shapes[selectedId] && shapes[selectedId].type === 'text' && (
+            <>
+              <Input 
+                 value={shapes[selectedId].text || ''}
+                 onChange={(e) => updateShape(selectedId, { text: e.target.value })}
+                 placeholder="Add text..."
+                 className="w-48 bg-zinc-950/50 border-zinc-800 focus-visible:ring-indigo-500 text-sm text-zinc-100 rounded-xl"
+              />
+              <div className="w-px h-6 bg-zinc-800" />
+            </>
+          )}
           <div className="flex gap-1.5 items-center">
-             {['#3f3f46', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'].map(c => (
-                <button 
-                  key={c} 
-                  className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${shapes[selectedId].fill === c ? 'border-zinc-300 scale-110 shadow-sm' : 'border-transparent'}`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => updateShape(selectedId, { fill: c })}
-                />
-             ))}
+             {['#3f3f46', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'].map(c => {
+                const isActive = tool === 'pen' ? brushColor === c : (shapes[selectedId!]?.type === 'path' ? shapes[selectedId!].stroke === c : shapes[selectedId!].fill === c);
+                return (
+                  <button 
+                    key={c} 
+                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${isActive ? 'border-zinc-300 scale-110 shadow-sm' : 'border-transparent'}`}
+                    style={{ backgroundColor: c }}
+                    onClick={() => {
+                       if (tool === 'pen') {
+                          setBrushColor(c);
+                       } else if (selectedId) {
+                          if (shapes[selectedId].type === 'path') {
+                             updateShape(selectedId, { stroke: c });
+                          } else {
+                             updateShape(selectedId, { fill: c });
+                          }
+                       }
+                    }}
+                  />
+                );
+             })}
           </div>
-          <div className="w-px h-6 bg-zinc-800" />
-          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-red-400 hover:bg-red-500/10 w-8 h-8 rounded-full" onClick={() => { removeShape(selectedId); selectShape(null); }}>
-             <Trash2 className="w-4 h-4" />
-          </Button>
+          {selectedId && shapes[selectedId] && (
+            <>
+              <div className="w-px h-6 bg-zinc-800" />
+              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-red-400 hover:bg-red-500/10 w-8 h-8 rounded-full" onClick={() => { removeShape(selectedId); selectShape(null); }}>
+                 <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>

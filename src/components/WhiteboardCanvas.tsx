@@ -1,7 +1,7 @@
 import * as fabric from 'fabric';
 import { useEffect, useRef } from 'react';
 
-export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTool, selectedId, selectShape }: any) {
+export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTool, selectedId, selectShape, brushColor = '#ffffff' }: any) {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
@@ -68,6 +68,7 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
         height,
         radius,
         fill: target.fill,
+        stroke: target.stroke,
         text: target.text, // for Textbox
         fontSize: target.fontSize, // for Textbox
       });
@@ -115,7 +116,7 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                existingObj.set({ text: shapeData.text, fill: shapeData.fill, fontSize: shapeData.fontSize, width: shapeData.width });
             } else if (shapeData.type === 'path') {
                // Update path coordinates
-               existingObj.set({ path: shapeData.path });
+               existingObj.set({ path: shapeData.path, stroke: shapeData.stroke });
             }
             existingObj.setCoords();
             existingObj.isRemoteUpdate = false;
@@ -194,10 +195,11 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
     
     canvas.isDrawingMode = (tool === 'pen');
     if (tool === 'pen') {
-       const brush = new fabric.PencilBrush(canvas);
-       brush.color = '#ffffff';
-       brush.width = 3;
-       canvas.freeDrawingBrush = brush;
+       if (!canvas.freeDrawingBrush || !(canvas.freeDrawingBrush instanceof fabric.PencilBrush)) {
+           canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+       }
+       canvas.freeDrawingBrush.color = brushColor;
+       canvas.freeDrawingBrush.width = 3;
     }
 
     if (tool !== 'select') {
@@ -313,7 +315,6 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                y: pathObj.top,
            });
            canvas.remove(pathObj); // the Y.js sync will add it back
-           setTool('select');
         }
     };
 
@@ -330,7 +331,7 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
         canvas.off('mouse:wheel', onWheel);
         canvas.off('path:created', onPathCreated);
     };
-  }, [tool, updateShape, setTool]);
+  }, [tool, updateShape, setTool, brushColor]);
 
   useEffect(() => {
      if (fabricRef.current && tool === 'pan') {

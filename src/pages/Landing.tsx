@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,26 @@ import { BrainCircuit } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Landing() {
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, signInGuest } = useAuth();
+  const [joiningWifi, setJoiningWifi] = useState(false);
+
+  const handleJoinWifi = async () => {
+     setJoiningWifi(true);
+     try {
+        const res = await fetch('/api/network-room');
+        const data = await res.json();
+        if (data.roomId) {
+           sessionStorage.setItem('pendingRoom', data.roomId);
+           if (!user) {
+              await signInGuest();
+           }
+        }
+     } catch (e) {
+        console.error(e);
+     } finally {
+        setJoiningWifi(false);
+     }
+  };
 
   if (loading) return <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">Loading...</div>;
   if (user) return <Navigate to="/dash" />;
@@ -36,6 +56,9 @@ export default function Landing() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
+          <Button onClick={signInGuest} variant="ghost" className="text-zinc-400 hover:text-white mr-2">
+            Try as Guest
+          </Button>
           <Button onClick={signIn} variant="secondary" className="bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm border border-white/10 transition-all rounded-full px-6">
             Sign In
           </Button>
@@ -78,9 +101,13 @@ export default function Landing() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
+          className="flex flex-col sm:flex-row gap-4 items-center justify-center"
         >
           <Button onClick={signIn} size="lg" className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-full px-8 h-14 text-lg font-medium transition-all hover:scale-105 shadow-[0_0_30px_rgba(79,70,229,0.3)]">
             Start building for free
+          </Button>
+          <Button onClick={handleJoinWifi} disabled={joiningWifi} size="lg" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white rounded-full px-8 h-14 text-lg font-medium transition-all hover:scale-105 border border-white/10">
+            {joiningWifi ? 'Joining...' : 'Join WiFi Room'}
           </Button>
         </motion.div>
 

@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, signInAnonymously } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -17,7 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
-      setUser(u);
+      setUser((prev: any) => {
+         if (prev && prev.uid && prev.uid.startsWith('guest-') && !u) return prev;
+         return u;
+      });
       setLoading(false);
     });
   }, []);
@@ -38,8 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
   };
 
+  const signInGuest = async () => {
+    try {
+      await signInAnonymously(auth);
+    } catch (e: any) {
+      console.error('Guest sign-in failed, using local guest session:', e);
+      setUser({
+        uid: 'guest-' + Date.now(),
+        displayName: 'Guest User',
+        photoURL: '',
+        email: null,
+      } as any);
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInGuest, signOut }}>
       {children}
     </AuthContext.Provider>
   );

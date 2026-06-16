@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
+import crypto from 'crypto';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
@@ -8,9 +9,22 @@ import { GoogleGenAI } from '@google/genai';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 9123;
   
   app.use(express.json());
+
+  app.use(express.json());
+
+  // API Route for Network/WiFi Room
+  app.get('/api/network-room', (req, res) => {
+    let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    if (Array.isArray(ip)) ip = ip[0];
+    if (ip === '::1' || ip === '127.0.0.1') {
+      ip = 'localhost';
+    }
+    const hash = crypto.createHash('sha256').update(String(ip)).digest('hex').substring(0, 10);
+    res.json({ roomId: `wifi-${hash}` });
+  });
 
   // API Route for Gemini AI
   app.post('/api/ai/generate-diagram', async (req, res) => {
