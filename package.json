@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "start": "node dist/server.cjs"
+    "start": "NODE_ENV=production node dist/server.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -24,6 +24,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_express = __toESM(require("express"), 1);
 var import_http = require("http");
+var import_crypto = __toESM(require("crypto"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_vite = require("vite");
 var import_ws = require("ws");
@@ -31,8 +32,18 @@ var import_utils = require("y-websocket/bin/utils");
 var import_genai = require("@google/genai");
 async function startServer() {
   const app = (0, import_express.default)();
-  const PORT = 3e3;
+  const PORT = process.env.PORT || 9123;
   app.use(import_express.default.json());
+  app.use(import_express.default.json());
+  app.get("/api/network-room", (req, res) => {
+    let ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+    if (Array.isArray(ip)) ip = ip[0];
+    if (ip === "::1" || ip === "127.0.0.1") {
+      ip = "localhost";
+    }
+    const hash = import_crypto.default.createHash("sha256").update(String(ip)).digest("hex").substring(0, 10);
+    res.json({ roomId: `wifi-${hash}` });
+  });
   app.post("/api/ai/generate-diagram", async (req, res) => {
     try {
       const { prompt } = req.body;
@@ -87,7 +98,8 @@ async function startServer() {
     (0, import_utils.setupWSConnection)(ws, req, { docName: room });
   });
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running at http://localhost:${PORT}/`);
+    console.log(`Local: http://localhost:${PORT}/`);
   });
 }
 startServer();
