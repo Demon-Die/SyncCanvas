@@ -19,9 +19,22 @@ async function startServer() {
   app.get('/api/network-room', (req, res) => {
     let ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     if (Array.isArray(ip)) ip = ip[0];
-    if (ip === '::1' || ip === '127.0.0.1') {
-      ip = 'localhost';
+    if (typeof ip === 'string' && ip.includes(',')) {
+      ip = ip.split(',')[0].trim();
     }
+    
+    // Normalize localhost
+    if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') {
+      ip = 'localhost';
+    } else if (typeof ip === 'string') {
+      // Group by subnet for local private networks so devices on the same home wifi match
+      let cleanIp = ip.replace('::ffff:', '');
+      if (cleanIp.startsWith('192.168.') || cleanIp.startsWith('10.')) {
+         const parts = cleanIp.split('.');
+         ip = `${parts[0]}.${parts[1]}.${parts[2]}`;
+      }
+    }
+
     const hash = crypto.createHash('sha256').update(String(ip)).digest('hex').substring(0, 10);
     res.json({ roomId: `wifi-${hash}` });
   });

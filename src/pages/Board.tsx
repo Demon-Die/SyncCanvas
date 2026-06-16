@@ -140,21 +140,25 @@ export default function Board() {
           </Button>
         </form>
         
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-3 bg-zinc-900/60 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl shadow-lg ring-1 ring-white/5">
+           <div className="text-zinc-300 text-sm font-medium whitespace-nowrap">
+             {awarenessUsers.size} Online
+           </div>
+           <div className="w-px h-4 bg-zinc-700 mx-1" />
            <div className="flex -space-x-2">
               {Array.from(awarenessUsers.entries()).map(([clientId, state]) => {
                  if (!state.user) return null;
                  return (
                    <div key={clientId} className="relative group">
                      {state.user.photoURL ? (
-                        <img src={state.user.photoURL} className="w-8 h-8 rounded-full border-2 border-zinc-950 bg-zinc-800 object-cover" alt={state.user.name} />
+                        <img src={state.user.photoURL} className="w-8 h-8 rounded-full border-2 border-zinc-900 bg-zinc-800 object-cover" alt={state.user.name} />
                      ) : (
-                        <div className="w-8 h-8 rounded-full border-2 border-zinc-950 text-xs flex items-center justify-center font-bold text-white shadow-sm" style={{ backgroundColor: state.user.color }}>
+                        <div className="w-8 h-8 rounded-full border-2 border-zinc-900 text-xs flex items-center justify-center font-bold text-white shadow-sm" style={{ backgroundColor: state.user.color }}>
                            {state.user.name.charAt(0).toUpperCase()}
                         </div>
                      )}
-                     <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-zinc-800 text-zinc-200 text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                        {state.user.name}
+                     <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-800 text-zinc-200 text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-xl pointer-events-none">
+                        {state.user.name} {clientId === awareness?.clientID ? '(You)' : ''}
                      </span>
                    </div>
                  )
