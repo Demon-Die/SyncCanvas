@@ -6,6 +6,21 @@ export const WhiteboardCanvas = forwardRef(function WhiteboardCanvas({ shapes, u
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
 
+  useImperativeHandle(ref, () => ({
+    exportAsImage: () => {
+       if (!fabricRef.current) return;
+       const dataURL = fabricRef.current.toDataURL({
+          format: 'png',
+          quality: 1,
+          multiplier: 2 // High quality
+       });
+       const link = document.createElement('a');
+       link.download = 'synccanvas-board.png';
+       link.href = dataURL;
+       link.click();
+    }
+  }));
+
   useEffect(() => {
     if (!canvasElRef.current || !canvasContainerRef.current) return;
     const canvas = new fabric.Canvas(canvasElRef.current, {
@@ -25,21 +40,6 @@ export const WhiteboardCanvas = forwardRef(function WhiteboardCanvas({ shapes, u
       }
     };
     window.addEventListener('resize', handleResize);
-
-    useImperativeHandle(ref, () => ({
-      exportAsImage: () => {
-         if (!fabricRef.current) return;
-         const dataURL = fabricRef.current.toDataURL({
-            format: 'png',
-            quality: 1,
-            multiplier: 2 // High quality
-         });
-         const link = document.createElement('a');
-         link.download = 'synccanvas-board.png';
-         link.href = dataURL;
-         link.click();
-      }
-    }));
 
     // handling selection
     canvas.on('selection:created', (e) => {
