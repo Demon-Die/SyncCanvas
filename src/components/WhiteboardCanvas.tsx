@@ -222,9 +222,9 @@ export const WhiteboardCanvas = forwardRef(function WhiteboardCanvas({ shapes, u
     });
     
     // Sort canvas objects by zIndex
-    const sorted = canvas.getObjects().sort((a: any, b: any) => (a.zIndex || 0) - (b.zIndex || 0));
+    const sorted = [...canvas.getObjects()].sort((a: any, b: any) => (a.zIndex || 0) - (b.zIndex || 0));
     sorted.forEach((obj, i) => {
-       canvas.moveTo(obj, i);
+       canvas.moveObjectTo(obj, i);
     });
     
     // Remove shapes deleted from Y.js
