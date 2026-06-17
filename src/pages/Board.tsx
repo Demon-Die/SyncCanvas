@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useYjsStore } from '../hooks/useYjs';
 import { WhiteboardCanvas } from '../components/WhiteboardCanvas';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MousePointer2, Square, Circle, Type, Sparkles, Home, Hand, Trash2, Pen, Eraser, Undo2, Redo2 } from 'lucide-react';
+import { MousePointer2, Square, Circle, Type, Sparkles, Home, Hand, Trash2, Pen, Eraser, Undo2, Redo2, Download, StickyNote, BringToFront, SendToBack } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,6 +19,32 @@ export default function Board() {
   const [brushColor, setBrushColor] = useState('#ffffff');
   const [prompt, setPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const canvasRef = useRef<any>(null);
+
+  const clearBoard = () => {
+    if (confirm('Are you sure you want to clear the entire board?')) {
+       Object.keys(shapes).forEach(id => removeShape(id));
+       selectShape(null);
+    }
+  };
+
+  const bringToFront = () => {
+     if (!selectedId) return;
+     let maxZ = 0;
+     Object.values(shapes).forEach((s: any) => {
+        if (s.zIndex !== undefined && s.zIndex > maxZ) maxZ = s.zIndex;
+     });
+     updateShape(selectedId, { zIndex: maxZ + 1 });
+  };
+
+  const sendToBack = () => {
+     if (!selectedId) return;
+     let minZ = 0;
+     Object.values(shapes).forEach((s: any) => {
+        if (s.zIndex !== undefined && s.zIndex < minZ) minZ = s.zIndex;
+     });
+     updateShape(selectedId, { zIndex: minZ - 1 });
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -124,6 +150,13 @@ export default function Board() {
           <div className="bg-zinc-900/60 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl text-sm font-medium text-zinc-200 shadow-lg flex items-center gap-2">
             Board {synced ? <span className="inline-block w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" /> : <span className="inline-block w-2 h-2 rounded-full bg-zinc-500" />}
           </div>
+          <div className="w-px h-6 bg-zinc-800 mx-1" />
+          <Button variant="secondary" size="icon" onClick={() => canvasRef.current?.exportAsImage()} className="bg-zinc-900/60 backdrop-blur-xl border-white/10 text-zinc-300 hover:bg-zinc-800/80 hover:text-white rounded-xl shadow-lg" title="Export as PNG">
+            <Download className="w-4 h-4" />
+          </Button>
+          <Button variant="secondary" size="icon" onClick={clearBoard} className="bg-zinc-900/60 backdrop-blur-xl border-white/10 text-zinc-300 hover:bg-red-500/20 hover:text-red-400 rounded-xl shadow-lg" title="Clear Board">
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
         
         {/* AI Prompt Input */}
@@ -180,6 +213,7 @@ export default function Board() {
         <ToolButton icon={<Square />} active={tool === 'rect'} onClick={() => setTool('rect')} label="Rectangle (R)" />
         <ToolButton icon={<Circle />} active={tool === 'circle'} onClick={() => setTool('circle')} label="Circle (C)" />
         <ToolButton icon={<Type />} active={tool === 'text'} onClick={() => setTool('text')} label="Text (T)" />
+        <ToolButton icon={<StickyNote />} active={tool === 'sticky'} onClick={() => setTool('sticky')} label="Sticky Note (S)" />
         <ToolButton icon={<Pen />} active={tool === 'pen'} onClick={() => setTool('pen')} label="Pen (P)" />
         <ToolButton icon={<Eraser />} active={tool === 'eraser'} onClick={() => setTool('eraser')} label="Eraser (E)" />
         <div className="h-px w-full bg-zinc-800 my-1" />
@@ -214,7 +248,7 @@ export default function Board() {
       })}
 
       {/* Canvas Area */}
-      <WhiteboardCanvas shapes={shapes} updateShape={updateShape} tool={tool} setTool={setTool} selectedId={selectedId} selectShape={selectShape} brushColor={brushColor} />
+      <WhiteboardCanvas ref={canvasRef} shapes={shapes} updateShape={updateShape} tool={tool} setTool={setTool} selectedId={selectedId} selectShape={selectShape} brushColor={brushColor} />
 
       {/* Properties Toolbar */}
       {((selectedId && shapes[selectedId]) || tool === 'pen') && (
@@ -255,6 +289,13 @@ export default function Board() {
           </div>
           {selectedId && shapes[selectedId] && (
             <>
+              <div className="w-px h-6 bg-zinc-800" />
+              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-white/10 w-8 h-8 rounded-full" onClick={bringToFront} title="Bring to Front">
+                 <BringToFront className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-white/10 w-8 h-8 rounded-full" onClick={sendToBack} title="Send to Back">
+                 <SendToBack className="w-4 h-4" />
+              </Button>
               <div className="w-px h-6 bg-zinc-800" />
               <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-red-400 hover:bg-red-500/10 w-8 h-8 rounded-full" onClick={() => { removeShape(selectedId); selectShape(null); }}>
                  <Trash2 className="w-4 h-4" />

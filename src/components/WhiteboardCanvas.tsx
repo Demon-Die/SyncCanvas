@@ -1,7 +1,7 @@
 import * as fabric from 'fabric';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
-export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTool, selectedId, selectShape, brushColor = '#ffffff' }: any) {
+export const WhiteboardCanvas = forwardRef(function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTool, selectedId, selectShape, brushColor = '#ffffff' }: any, ref) {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
@@ -17,12 +17,29 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
     fabricRef.current = canvas;
 
     const handleResize = () => {
-      canvas.setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
+      if (fabricRef.current) {
+        fabricRef.current.setDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      }
     };
     window.addEventListener('resize', handleResize);
+
+    useImperativeHandle(ref, () => ({
+      exportAsImage: () => {
+         if (!fabricRef.current) return;
+         const dataURL = fabricRef.current.toDataURL({
+            format: 'png',
+            quality: 1,
+            multiplier: 2 // High quality
+         });
+         const link = document.createElement('a');
+         link.download = 'synccanvas-board.png';
+         link.href = dataURL;
+         link.click();
+      }
+    }));
 
     // handling selection
     canvas.on('selection:created', (e) => {
@@ -41,32 +58,19 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
       selectShape(null);
     });
 
-    // Handle modification: moving, scaling, rotating
     const onModified = (e: any) => {
       const target = e.target;
       if (!target || !target.id) return;
       if (target.isRemoteUpdate) return;
       
-      const { id, type } = target;
-      
-      // Calculate scaling to update base width/height
-      const scaleX = target.scaleX || 1;
-      const scaleY = target.scaleY || 1;
-      target.set({ scaleX: 1, scaleY: 1 });
-      
-      let width = target.width * scaleX;
-      let height = target.height * scaleY;
-      let radius = target.radius ? target.radius * scaleX : undefined;
-      
-      if (type === 'rect') target.set({ width, height });
-      if (type === 'circle') target.set({ radius });
+      const { id } = target;
       
       updateShape(id, {
         x: target.left,
         y: target.top,
-        width,
-        height,
-        radius,
+        scaleX: target.scaleX || 1,
+        scaleY: target.scaleY || 1,
+        angle: target.angle || 0,
         fill: target.fill,
         stroke: target.stroke,
         text: target.text, // for Textbox
@@ -103,41 +107,81 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
         
         if (existingObj) {
             existingObj.isRemoteUpdate = true;
-            existingObj.set({
-               left: shapeData.x,
-               top: shapeData.y,
-               fill: shapeData.fill,
-            });
-            if (shapeData.type === 'rect' || shapeData.type === 'sticky') {
-               existingObj.set({ width: shapeData.width, height: shapeData.height });
+            
+            const updates: any = {};
+            if (existingObj.left !== shapeData.x) updates.left = shapeData.x;
+            if (existingObj.top !== shapeData.y) updates.top = shapeData.y;
+            if (existingObj.scaleX !== (shapeData.scaleX || 1)) updates.scaleX = shapeData.scaleX || 1;
+            if (existingObj.scaleY !== (shapeData.scaleY || 1)) updates.scaleY = shapeData.scaleY || 1;
+            if (existingObj.angle !== (shapeData.angle || 0)) updates.angle = shapeData.angle || 0;
+            
+            // Sync zIndex
+            existingObj.zIndex = shapeData.zIndex || 0;
+
+            if (shapeData.type === 'rect') {
+               if (existingObj.fill !== shapeData.fill) updates.fill = shapeData.fill;
+               if (existingObj.width !== shapeData.width) updates.width = shapeData.width;
+               if (existingObj.height !== shapeData.height) updates.height = shapeData.height;
             } else if (shapeData.type === 'circle') {
-               existingObj.set({ radius: shapeData.radius });
+               if (existingObj.fill !== shapeData.fill) updates.fill = shapeData.fill;
+               if (existingObj.radius !== shapeData.radius) updates.radius = shapeData.radius;
             } else if (shapeData.type === 'text') {
-               existingObj.set({ text: shapeData.text, fill: shapeData.fill, fontSize: shapeData.fontSize, width: shapeData.width });
+               if (existingObj.fill !== shapeData.fill) updates.fill = shapeData.fill;
+               if (existingObj.text !== shapeData.text) updates.text = shapeData.text;
+               if (existingObj.fontSize !== shapeData.fontSize) updates.fontSize = shapeData.fontSize;
+               if (existingObj.width !== shapeData.width) updates.width = shapeData.width;
+            } else if (shapeData.type === 'sticky') {
+               if (existingObj.backgroundColor !== shapeData.fill) updates.backgroundColor = shapeData.fill;
+               if (existingObj.text !== shapeData.text) updates.text = shapeData.text;
+               if (existingObj.fontSize !== shapeData.fontSize) updates.fontSize = shapeData.fontSize;
+               if (existingObj.width !== shapeData.width) updates.width = shapeData.width;
             } else if (shapeData.type === 'path') {
-               // Update path coordinates
-               existingObj.set({ path: shapeData.path, stroke: shapeData.stroke });
+               if (existingObj.stroke !== shapeData.stroke) updates.stroke = shapeData.stroke;
             }
-            existingObj.setCoords();
+            
+            if (Object.keys(updates).length > 0) {
+               existingObj.set(updates);
+               existingObj.setCoords();
+            }
             existingObj.isRemoteUpdate = false;
         } else {
             let obj: any;
-            if (shapeData.type === 'rect' || shapeData.type === 'sticky') {
+            if (shapeData.type === 'rect') {
                 obj = new fabric.Rect({
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
+                    scaleX: shapeData.scaleX || 1,
+                    scaleY: shapeData.scaleY || 1,
+                    angle: shapeData.angle || 0,
                     width: shapeData.width || 120,
                     height: shapeData.height || 120,
                     fill: shapeData.fill || '#3f3f46',
-                    rx: shapeData.type === 'sticky' ? 8 : 16,
-                    ry: shapeData.type === 'sticky' ? 8 : 16,
+                    rx: 16,
+                    ry: 16,
+                } as any);
+            } else if (shapeData.type === 'sticky') {
+                obj = new fabric.Textbox(shapeData.text || 'Sticky Note', {
+                    id: shapeData.id,
+                    left: shapeData.x,
+                    top: shapeData.y,
+                    scaleX: shapeData.scaleX || 1,
+                    scaleY: shapeData.scaleY || 1,
+                    angle: shapeData.angle || 0,
+                    fill: '#18181b', // dark text
+                    backgroundColor: shapeData.fill || '#fef08a',
+                    fontSize: shapeData.fontSize || 24,
+                    width: shapeData.width || 180,
+                    splitByGrapheme: true,
                 } as any);
             } else if (shapeData.type === 'circle') {
                 obj = new fabric.Circle({
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
+                    scaleX: shapeData.scaleX || 1,
+                    scaleY: shapeData.scaleY || 1,
+                    angle: shapeData.angle || 0,
                     radius: shapeData.radius || 60,
                     fill: shapeData.fill || '#3f3f46',
                 } as any);
@@ -146,6 +190,9 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
+                    scaleX: shapeData.scaleX || 1,
+                    scaleY: shapeData.scaleY || 1,
+                    angle: shapeData.angle || 0,
                     fill: shapeData.fill || '#fff',
                     fontSize: shapeData.fontSize || 24,
                     width: shapeData.width || 200,
@@ -155,6 +202,9 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                     id: shapeData.id,
                     left: shapeData.x,
                     top: shapeData.y,
+                    scaleX: shapeData.scaleX || 1,
+                    scaleY: shapeData.scaleY || 1,
+                    angle: shapeData.angle || 0,
                     stroke: shapeData.stroke || '#fff',
                     strokeWidth: shapeData.strokeWidth || 3,
                     fill: '',
@@ -164,10 +214,17 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
             }
             if (obj) {
                 obj.isRemoteUpdate = true;
+                obj.zIndex = shapeData.zIndex || 0;
                 canvas.add(obj);
                 obj.isRemoteUpdate = false;
             }
         }
+    });
+    
+    // Sort canvas objects by zIndex
+    const sorted = canvas.getObjects().sort((a: any, b: any) => (a.zIndex || 0) - (b.zIndex || 0));
+    sorted.forEach((obj, i) => {
+       canvas.moveTo(obj, i);
     });
     
     // Remove shapes deleted from Y.js
@@ -234,13 +291,16 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
         const id = Date.now().toString();
 
         if (tool === 'rect') {
-            updateShape(id, { id, type: 'rect', x, y, width: 120, height: 120, fill: '#6366f1' });
+            updateShape(id, { id, type: 'rect', x, y, width: 120, height: 120, fill: '#6366f1', zIndex: Date.now() });
             setTool('select');
         } else if (tool === 'circle') {
-            updateShape(id, { id, type: 'circle', x, y, radius: 60, fill: '#6366f1' });
+            updateShape(id, { id, type: 'circle', x, y, radius: 60, fill: '#6366f1', zIndex: Date.now() });
             setTool('select');
         } else if (tool === 'text') {
-            updateShape(id, { id, type: 'text', x, y, text: 'New Text', fill: '#ffffff', fontSize: 24, width: 200 });
+            updateShape(id, { id, type: 'text', x, y, text: 'New Text', fill: '#ffffff', fontSize: 24, width: 200, zIndex: Date.now() });
+            setTool('select');
+        } else if (tool === 'sticky') {
+            updateShape(id, { id, type: 'sticky', x, y, text: 'Note', fill: '#fef08a', fontSize: 24, width: 180, zIndex: Date.now() });
             setTool('select');
         }
     };
@@ -313,6 +373,9 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
                strokeWidth: pathObj.strokeWidth,
                x: pathObj.left,
                y: pathObj.top,
+               scaleX: pathObj.scaleX || 1,
+               scaleY: pathObj.scaleY || 1,
+               angle: pathObj.angle || 0,
            });
            canvas.remove(pathObj); // the Y.js sync will add it back
         }
@@ -348,4 +411,4 @@ export function WhiteboardCanvas({ shapes, updateShape, removeShape, tool, setTo
       <canvas ref={canvasElRef} className="focus:outline-none" />
     </div>
   );
-}
+});

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserWorkspaces, createWorkspace } from '../lib/db';
+import { getUserWorkspaces, createWorkspace, deleteWorkspace } from '../lib/db';
 import { Link, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { BrainCircuit, Plus, LayoutDashboard, LogOut, MoreVertical } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -13,6 +15,25 @@ export default function Dashboard() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [joiningWifi, setJoiningWifi] = useState(false);
+  const [roomCode, setRoomCode] = useState('');
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await deleteWorkspace(id);
+      setWorkspaces(prev => prev.filter(ws => ws.id !== id));
+    } catch (err) {
+      console.error('Failed to delete workspace', err);
+    }
+  };
+
+  const handleJoinCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (roomCode.trim()) {
+      navigate(`/board/${roomCode.trim().toUpperCase()}`);
+    }
+  };
 
   useEffect(() => {
     const pendingRoom = sessionStorage.getItem('pendingRoom');
@@ -108,6 +129,17 @@ export default function Dashboard() {
                <p className="text-zinc-500 mt-1">Create and manage your collaborative workspaces.</p>
             </div>
             <div className="flex gap-3">
+               <form onSubmit={handleJoinCode} className="flex gap-2">
+                 <Input 
+                   value={roomCode}
+                   onChange={e => setRoomCode(e.target.value)}
+                   placeholder="Room Code"
+                   className="w-32 bg-zinc-900/50 border-white/10 text-white rounded-full focus-visible:ring-indigo-500"
+                 />
+                 <Button type="submit" variant="secondary" className="bg-white/10 hover:bg-white/20 text-white rounded-full px-4">
+                   Join
+                 </Button>
+               </form>
                <Button onClick={handleJoinWifi} disabled={joiningWifi} variant="secondary" className="bg-white/10 hover:bg-white/20 text-white rounded-full px-6">
                  {joiningWifi ? 'Joining...' : 'Join WiFi Room'}
                </Button>
@@ -159,9 +191,21 @@ export default function Dashboard() {
                        <div className="p-4 flex flex-col flex-1">
                           <div className="flex justify-between items-start">
                              <h3 className="font-semibold text-zinc-200 group-hover:text-white transition-colors truncate pr-2">{ws.name}</h3>
-                             <button className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreVertical className="w-4 h-4" />
-                             </button>
+                             <DropdownMenu>
+                               <DropdownMenuTrigger asChild>
+                                 <button onClick={(e) => e.preventDefault()} className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <MoreVertical className="w-4 h-4" />
+                                 </button>
+                               </DropdownMenuTrigger>
+                               <DropdownMenuContent align="end" className="w-40 bg-zinc-900 border-white/10 text-zinc-300">
+                                 <DropdownMenuItem 
+                                   className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer focus:bg-red-500/10 focus:text-red-300"
+                                   onClick={(e) => handleDelete(e as any, ws.id)}
+                                 >
+                                   Delete Board
+                                 </DropdownMenuItem>
+                               </DropdownMenuContent>
+                             </DropdownMenu>
                           </div>
                           <p className="text-xs text-zinc-500 mt-auto flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-green-500/50"></span>
