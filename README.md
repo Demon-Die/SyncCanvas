@@ -4,7 +4,7 @@
 
 SyncCanvas is an infinite multiplayer whiteboard where teams can brainstorm, design, plan, and collaborate in real time. Think **Miro + Excalidraw + AI Copilot** all in one lightweight, modern workspace.
 
-![SyncCanvas Preview](./public/preview.png) *(Preview of the application interface)*
+Since Deployed on Render, might take a min to open.
 
 ---
 
