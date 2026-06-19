@@ -46,7 +46,7 @@ async function startServer() {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents: `You are an AI that creates mind maps and diagrams for a whiteboard app. 
           Return ONLY a JSON array of objects representing sticky notes or shapes.
           Each object must have: 
