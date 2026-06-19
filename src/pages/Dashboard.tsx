@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserWorkspaces, createWorkspace, deleteWorkspace } from '../lib/db';
+import { getUserWorkspaces, createWorkspace, deleteWorkspace, renameWorkspace } from '../lib/db';
 import { Link, useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [joiningWifi, setJoiningWifi] = useState(false);
   const [roomCode, setRoomCode] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  const submitRename = async (id: string) => {
+    if (editingName.trim()) {
+      try {
+        await renameWorkspace(id, editingName.trim());
+        setWorkspaces(prev => prev.map(ws => ws.id === id ? { ...ws, name: editingName.trim() } : ws));
+      } catch (err) {
+        console.error('Failed to rename workspace', err);
+      }
+    }
+    setEditingId(null);
+  };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -183,14 +197,35 @@ export default function Dashboard() {
                        
                        {/* Mock Canvas Preview area */}
                        <div className="h-32 w-full bg-zinc-950/50 border-b border-white/5 relative overflow-hidden flex items-center justify-center">
-                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                          <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 shadow-sm transform -rotate-12 group-hover:rotate-0 transition-transform duration-500"></div>
-                          <div className="w-16 h-8 rounded-full bg-indigo-900/40 border border-indigo-500/30 ml-4 transform rotate-12 group-hover:rotate-0 transition-transform duration-500"></div>
+                          {ws.thumbnail ? (
+                             <img src={ws.thumbnail} alt={ws.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                          ) : (
+                             <>
+                               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                               <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 shadow-sm transform -rotate-12 group-hover:rotate-0 transition-transform duration-500"></div>
+                               <div className="w-16 h-8 rounded-full bg-indigo-900/40 border border-indigo-500/30 ml-4 transform rotate-12 group-hover:rotate-0 transition-transform duration-500"></div>
+                             </>
+                          )}
                        </div>
                        
                        <div className="p-4 flex flex-col flex-1">
                           <div className="flex justify-between items-start">
-                             <h3 className="font-semibold text-zinc-200 group-hover:text-white transition-colors truncate pr-2">{ws.name}</h3>
+                             {editingId === ws.id ? (
+                               <Input 
+                                  autoFocus
+                                  value={editingName}
+                                  onChange={e => setEditingName(e.target.value)}
+                                  onBlur={() => submitRename(ws.id)}
+                                  onKeyDown={e => {
+                                     if (e.key === 'Enter') submitRename(ws.id);
+                                     if (e.key === 'Escape') setEditingId(null);
+                                  }}
+                                  onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                                  className="h-7 text-sm font-semibold bg-zinc-900/50 border-white/20 text-white w-full mr-2"
+                               />
+                             ) : (
+                               <h3 className="font-semibold text-zinc-200 group-hover:text-white transition-colors truncate pr-2">{ws.name}</h3>
+                             )}
                              <DropdownMenu>
                                <DropdownMenuTrigger asChild>
                                  <button onClick={(e) => e.preventDefault()} className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -198,6 +233,17 @@ export default function Dashboard() {
                                  </button>
                                </DropdownMenuTrigger>
                                <DropdownMenuContent align="end" className="w-40 bg-zinc-900 border-white/10 text-zinc-300">
+                                 <DropdownMenuItem 
+                                   className="hover:text-white hover:bg-white/10 cursor-pointer focus:bg-white/10 focus:text-white"
+                                   onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setEditingId(ws.id);
+                                      setEditingName(ws.name);
+                                   }}
+                                 >
+                                   Rename Board
+                                 </DropdownMenuItem>
                                  <DropdownMenuItem 
                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer focus:bg-red-500/10 focus:text-red-300"
                                    onClick={(e) => handleDelete(e as any, ws.id)}

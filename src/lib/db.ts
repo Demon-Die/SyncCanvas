@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -35,4 +35,9 @@ export async function getUserWorkspaces(userId: string) {
 
 export async function deleteWorkspace(id: string) {
   await deleteDoc(doc(db, 'workspaces', id));
+}
+
+export async function renameWorkspace(id: string, newName: string) {
+  const workspaceRef = doc(db, 'workspaces', id);
+  await updateDoc(workspaceRef, { name: newName, updatedAt: Date.now() });
 }

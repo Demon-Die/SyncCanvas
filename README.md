@@ -16,6 +16,10 @@ SyncCanvas is an infinite multiplayer whiteboard where teams can brainstorm, des
 - **Private Room Codes**: Generate unique, secure 8-character room codes to collaborate privately.
 - **Guest Mode**: Instantly hop into a board anonymously without needing to create an account.
 
+### 📁 Workspace Management
+- **Personalized Dashboard**: Create, rename, delete, and manage multiple workspaces in a sleek interface.
+- **Last Edited Tracking**: Keep track of your most recently active boards at a glance.
+
 ### 🏠 "WiFi Rooms" (Local Network Sync)
 - Automatically join the same collaborative room as anyone on the exact same physical WiFi network!
 - No need to share links—just click "Join WiFi Room" and instantly start drawing with the person next to you.
@@ -38,6 +42,7 @@ SyncCanvas is an infinite multiplayer whiteboard where teams can brainstorm, des
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS v4, Framer Motion
+- **UI Components**: Base UI, Shadcn, Lucide React
 - **Canvas Engine**: Fabric.js (v6/v7 API)
 - **Collaboration**: `y-websocket` and `yjs` (Peer-to-peer Conflict-free Replicated Data Types)
 - **Backend / Deployment**: Express.js (Node.js) server serving the static files and WebSockets simultaneously.

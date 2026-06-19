@@ -18,6 +18,14 @@ export const WhiteboardCanvas = forwardRef(function WhiteboardCanvas({ shapes, u
        link.download = 'synccanvas-board.png';
        link.href = dataURL;
        link.click();
+    },
+    getThumbnail: () => {
+       if (!fabricRef.current) return null;
+       return fabricRef.current.toDataURL({
+          format: 'jpeg',
+          quality: 0.3,
+          multiplier: 0.2
+       });
     }
   }));
 

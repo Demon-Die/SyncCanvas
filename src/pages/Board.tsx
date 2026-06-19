@@ -84,10 +84,14 @@ export default function Board() {
     const timeout = setTimeout(() => {
       import('firebase/firestore').then(({ doc, updateDoc }) => {
         import('../firebase').then(({ db }) => {
-           updateDoc(doc(db, 'workspaces', id!), {
+           const thumbnail = canvasRef.current?.getThumbnail?.() || null;
+           const dataToUpdate: any = {
               state: JSON.stringify(shapes),
               updatedAt: Date.now()
-           }).catch(err => console.error(err));
+           };
+           if (thumbnail) dataToUpdate.thumbnail = thumbnail;
+           
+           updateDoc(doc(db, 'workspaces', id!), dataToUpdate).catch(err => console.error(err));
         });
       });
     }, 5000);

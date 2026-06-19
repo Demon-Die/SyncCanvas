@@ -66,7 +66,8 @@ async function startServer() {
       });
       
       if (response.text) {
-         res.json({ shapes: JSON.parse(response.text) });
+         const cleanJson = response.text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+         res.json({ shapes: JSON.parse(cleanJson) });
       } else {
          res.status(500).json({ error: "No response text" });
       }
