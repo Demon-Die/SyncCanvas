@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import crypto from 'crypto';
@@ -5,7 +6,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
 import { setupWSConnection } from 'y-websocket/bin/utils';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 
 async function startServer() {
   const app = express();
@@ -43,30 +44,40 @@ async function startServer() {
   app.post('/api/ai/generate-diagram', async (req, res) => {
     try {
       const { prompt } = req.body;
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: `You are an AI that creates mind maps and diagrams for a whiteboard app. 
-          Return ONLY a JSON array of objects representing sticky notes or shapes.
-          Each object must have: 
-          - id (string, unique uuid)
-          - type (string: "rect" or "circle" or "sticky")
-          - x (number)
-          - y (number)
-          - text (string, the node text)
-          - width (number)
-          - height (number)
-          - fill (string, hex color like "#2A2A2A")
-          
-          Make them visually appealing with good spacing for this prompt: "${prompt}"`,
-        config: {
-          responseMimeType: "application/json",
-        }
+      const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY
       });
       
-      if (response.text) {
-         const cleanJson = response.text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+      const completion = await openai.chat.completions.create({
+        model: "meta-llama/llama-3.3-70b-instruct",
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI that creates mind maps and diagrams for a whiteboard app. 
+          Return ONLY a JSON array of objects representing sticky notes.
+          Each object must have: 
+          - id (string, unique uuid)
+          - type (MUST be exactly "sticky")
+          - x (number, coordinate for layout)
+          - y (number, coordinate for layout)
+          - text (string, the node text, keep it concise)
+          - width (number, e.g., 180 to 250)
+          - fill (string, use LIGHT pastel hex colors like "#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8", "#e9d5ff" so the dark text is readable)
+          
+          Arrange the x and y coordinates to form a well-structured layout (like a tree or web for a mind map). Leave about 50-100px of spacing between nodes.`
+          },
+          {
+            role: "user",
+            content: `Make them visually appealing with good spacing for this prompt: "${prompt}"`
+          }
+        ]
+      });
+      
+      const responseText = completion.choices[0]?.message?.content;
+      
+      if (responseText) {
+         const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
          res.json({ shapes: JSON.parse(cleanJson) });
       } else {
          res.status(500).json({ error: "No response text" });
